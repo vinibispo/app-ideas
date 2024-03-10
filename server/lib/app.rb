@@ -15,3 +15,6 @@ app.post('/hello') do |req, res|
 end
 
 app.run
+
+Signal.trap('INT') { app.stop }
+Signal.trap('TERM') { app.stop }

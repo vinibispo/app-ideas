@@ -4,15 +4,25 @@ require_relative 'router'
 require_relative 'request'
 require_relative 'response'
 class Server < Router
-  def initialize
-    super()
+  attr_reader :stdout
+
+  def initialize(stdout = $stdout)
+    super(stdout)
     @server = Socket.new(:INET, :STREAM)
+    @stdout = stdout
   end
 
   def listen(port, &block)
-    @server.bind(Socket.sockaddr_in(port, '127.0.0.1'))
-    block.call(port)
+    addr = Socket.pack_sockaddr_in(port, '127.0.0.1')
+
+    @server.bind(addr)
+
     @server.listen(5)
+    actual_port = Socket.unpack_sockaddr_in(@server.getsockname).first
+
+    block.call(actual_port)
+
+    actual_port
   end
 
   def start
@@ -25,6 +35,9 @@ class Server < Router
         route(req, res)
         client.close
       end
+    rescue IOError
+      stdout.puts 'Server is shutting down...'
+      break
     end
   end
 
@@ -38,4 +51,6 @@ class Server < Router
   def close
     @server.close
   end
+
+  alias stop close
 end

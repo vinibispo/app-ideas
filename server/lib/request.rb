@@ -17,6 +17,18 @@ class Request
     @body = body
     @request_method = request_method
     @http_version = http_version
+
+    return unless (json? || form_urlencoded?) && body && !body.empty?
+
+    @body = JSON.parse(body)
+  end
+
+  def json?
+    headers['Content-Type'] == 'application/json'
+  end
+
+  def form_urlencoded?
+    headers['Content-Type'] == 'application/x-www-form-urlencoded'
   end
 
   def self.parse(request)

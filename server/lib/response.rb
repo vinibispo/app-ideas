@@ -80,6 +80,12 @@ class Response
     send_response
   end
 
+  def html(body)
+    @headers['Content-Type'] = 'text/html'
+    @body = body
+    send_response
+  end
+
   def json(data)
     @headers['Content-Type'] = 'application/json'
     @body = data.to_json

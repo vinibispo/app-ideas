@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bin2Dec</title>
+</head>
+<body>
+  <form>
+    <input type="text" id="binary" placeholder="Enter a binary number (0 or 1)">
+    <button type="submit">Convert</button>
+  </form>
+  <output></output>
+</body>
+
+<script>
+  const form = document.querySelector('form')
+  const input = document.querySelector('input')
+  const isInputValid = (input) => input.match(/^[0-1]+$/) && input.length <= 8
+
+  input.addEventListener('input', (e) => {
+    const binary = e.target.value
+    if (isInputValid(binary)) {
+      input.style.border = '1px solid #000'
+    } else {
+      input.style.border = '1px solid red'
+    }
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault()
+    document.body.removeChild(document.querySelector('output'))
+    const output = document.createElement('output')
+    const binary = input.value
+    if (isInputValid(binary)) {
+      fetch('/bin2dec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ binary })
+      }).then(res => res.json())
+        .then(data => {
+          output.textContent = data.decimal
+          document.body.appendChild(output)
+        })
+    }
+  })
+</script>
+</html>
