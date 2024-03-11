@@ -21,6 +21,8 @@ class Request
     return unless (json? || form_urlencoded?) && body && !body.empty?
 
     @body = JSON.parse(body)
+  rescue JSON::ParserError
+    @body = body
   end
 
   def json?
@@ -31,18 +33,40 @@ class Request
     headers['Content-Type'] == 'application/x-www-form-urlencoded'
   end
 
-  def self.parse(request)
-    request_method, full_path, http_version = request.lines[0].split
-    url, params = full_path.split('?')
-    headers = {}
-    body = request.split("\r\n\r\n", 2)[1]
-    request.lines[1..].each do |line|
-      header, value = line.split
+  def self.parse(client:)
+    request_method, full_path, http_version = client.gets.gsub("\r\n", '').split(' ')
 
-      break if header.nil? || value.nil?
-
-      headers[header.chop] = value
-    end
+    url, params = extract_url_and_params(full_path)
+    headers = extract_headers(client)
+    body = client.read(headers['Content-Length'].to_i)
     new(url:, params:, headers:, body:, request_method:, http_version:)
+  end
+
+  class << self
+    private
+
+    def extract_url_and_params(full_path)
+      url, params = full_path.split('?')
+
+      return url, {} unless params
+
+      params = params.split('&').map do |param|
+        key, value = param.split('=')
+        [key, value]
+      end.to_h
+      [url, params]
+    end
+
+    def extract_headers(client)
+      headers = {}
+      loop do
+        line = client.gets
+        break if line == "\r\n"
+
+        key, value = line.gsub("\r\n", '').split(': ')
+        headers[key.strip] = value.strip
+      end
+      headers
+    end
   end
 end

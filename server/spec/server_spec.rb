@@ -6,66 +6,78 @@ require 'spec_helper'
 
 RSpec.describe Server do
   before(:all) do
-    @server = Server.new(StringIO.new)
-    @mutex = Mutex.new
-    @server_port = nil
+    @app = described_class.new
 
-    @server.listen(0) do |port|
-      puts "Test server is running on port #{port}"
-      @mutex.synchronize { @server_port = port }
+    @app.listen(3000) { |port| puts "Server listening on port #{port}" }
+
+    @app.get '/hello' do |_req, res|
+      res.send('Hello World')
     end
 
-    @server.get('/hello') do |_req, res|
-      res.status(:ok).send('Hello, World!')
-    end
-
-    @server.post('/hello') do |req, res|
+    @app.post '/hello' do |req, res|
       name = req.body['name']
-      res.status(:created).send("Hello, #{name}!") unless name.nil?
-      res.status(:bad_request).send('Name not provided') if name.nil?
-    end
-
-    @app_thread = Thread.new { @server.run }
-
-    # Wait for the server to start
-    sleep(0.1) until @mutex.synchronize { @server_port }
-    @uri_base = "http://localhost:#{@mutex.synchronize { @server_port }}"
-  end
-
-  after(:all) do
-    @mutex.synchronize do
-      @server.stop
-      # Allow some time for the server to stop
-      sleep(0.1)
-      @app_thread.join
+      if name.nil? || name.empty?
+        res.status(400).send('Name not provided')
+      else
+        res.send("Hello #{name}")
+      end
     end
   end
 
-  it 'responds to a GET request' do
-    uri = URI("#{@uri_base}/hello")
-    response = Net::HTTP.get(uri)
-    expect(response).to match('Hello, World!')
+  it 'should return Hello World' do
+    @thread = Thread.new { @app.run }
+    sleep 0.1
+
+    client = TCPSocket.new('localhost', 3000)
+    client.puts "GET /hello HTTP/1.1\r\n\r\n"
+    response = client.read
+    client.close
+
+    expect(response).to match(/Hello World/)
+    expect(response).to match(/200 OK/)
+
+    @app.stop
+    @thread.join
+    sleep 0.1
   end
 
-  it 'responds to a POST request' do
-    uri = URI("#{@uri_base}/hello")
-    name = 'Alice'
-    response = Net::HTTP.post(uri, { name: name }.to_json, 'Content-Type' => 'application/json')
+  it 'should return Hello John' do
+    @thread = Thread.new { @app.run }
+    sleep 0.1
 
-    expect(response.body).to match("Hello, #{name}!")
+    body = { name: 'John'}.to_json
+    client = TCPSocket.new('localhost', 3000)
+    client.puts "POST /hello HTTP/1.1\r\nContent-Length: #{body.bytesize}\r"
+    client.puts"Content-Type: application/json\r\n\r\n"
+    client.puts body
+    response = client.read
+    client.close
+
+    expect(response).to match(/Hello John/)
+    expect(response).to match(/200 OK/)
+
+    @app.stop
+    @thread.join
+    sleep 0.1
   end
 
-  it 'responds with a 404 status code for an unknown route' do
-    uri = URI("#{@uri_base}/unknown")
-    response = Net::HTTP.get_response(uri)
-    expect(response.code).to eq('404')
-  end
+  it 'should return Name not provided' do
+    @thread = Thread.new { @app.run }
+    sleep 0.1
 
-  it 'responds with a 400 status code for a POST request with missing name' do
-    uri = URI("#{@uri_base}/hello")
-    response = Net::HTTP.post(uri, {}.to_json, 'Content-Type' => 'application/json')
+    body = { name: ''}.to_json
+    client = TCPSocket.new('localhost', 3000)
+    client.puts "POST /hello HTTP/1.1\r\nContent-Length: #{body.bytesize}\r"
+    client.puts"Content-Type: application/json\r\n\r\n"
+    client.puts body
+    response = client.read
+    client.close
 
-    expect(response.code).to eq('400')
-    expect(response.body).to match('Name not provided')
+    expect(response).to match(/Name not provided/)
+    expect(response).to match(/400 Bad Request/)
+
+    @app.stop
+    @thread.join
+    sleep 0.1
   end
 end

@@ -10,27 +10,19 @@ class Server < Router
     super(stdout)
     @server = Socket.new(:INET, :STREAM)
     @stdout = stdout
+    @bind = 'localhost'
   end
 
   def listen(port, &block)
-    addr = Socket.pack_sockaddr_in(port, '127.0.0.1')
-
-    @server.bind(addr)
-
-    @server.listen(5)
-    actual_port = Socket.unpack_sockaddr_in(@server.getsockname).first
-
-    block.call(actual_port)
-
-    actual_port
+    @port = port
+    block.call(port)
   end
 
   def start
+    @server = TCPServer.new(@bind, @port)
     loop do
       accept do |client|
-        request = client.recv(1000)
-
-        req = Request.parse(request)
+        req = Request.parse(client:)
         res = Response.new(client:, http_version: req.http_version)
         route(req, res)
         client.close
@@ -44,7 +36,7 @@ class Server < Router
   alias run start
 
   def accept(&block)
-    client, = @server.accept
+    client = @server.accept
     block.call(client)
   end
 
