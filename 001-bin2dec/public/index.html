@@ -16,23 +16,36 @@
 <script>
   const form = document.querySelector('form')
   const input = document.querySelector('input')
-  const isInputValid = (input) => input.match(/^[0-1]+$/) && input.length <= 8
+  const isInputValid = (input) => input.match(/^[0-1]+$/)
 
   input.addEventListener('input', (e) => {
     const binary = e.target.value
     if (isInputValid(binary)) {
       input.style.border = '1px solid #000'
+      const errorElement = document.querySelector('p')
+      if (errorElement) {
+        document.body.removeChild(errorElement)
+      }
     } else {
       input.style.border = '1px solid red'
+      const oldErrorElement = document.querySelector('p')
+      if (oldErrorElement) {
+        document.body.removeChild(oldErrorElement)
+      }
+      const errorElement = document.createElement('p')
+      errorElement.textContent = 'Invalid input. Please enter a binary number (0 or 1)'
+      errorElement.style.color = 'red'
+      errorElement.style.marginTop = '5px'
+      document.body.appendChild(errorElement)
     }
   });
 
   form.addEventListener('submit', (e) => {
     e.preventDefault()
-    document.body.removeChild(document.querySelector('output'))
-    const output = document.createElement('output')
     const binary = input.value
     if (isInputValid(binary)) {
+      document.body.removeChild(document.querySelector('output'))
+      const output = document.createElement('output')
       fetch('/bin2dec', {
         method: 'POST',
         headers: {
